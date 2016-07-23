@@ -225,7 +225,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
        parse_filename()
 
        AAAAAAAAAAADDDDDDDDDDD
-       */
+    */
 
 
     /* Open executable file. */
@@ -315,7 +315,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     /*
        construct_ESP(esp)
        AAAAAAAAAAAADDDDDDDDDDDDDDDDDDD
-       */
+    */
 
     /* Start address. */
     *eip = (void (*) (void)) ehdr.e_entry;
