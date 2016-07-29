@@ -88,7 +88,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  return -1;
+    
+    while(1){
+
+    }
+    //return -1;
 }
 
 /* Free the current process's resources. */
@@ -215,24 +219,38 @@ load (const char *file_name, void (**eip) (void), void **esp)
     bool success = false;
     int i;
 
+    int argc = 0, arg_size;
+    char temp_file_name[130] = {0,};
+    char *stack_arg[65] = {0,};
+    char null_arg[] = "\0\0\0\0";
+    char *token, *save_ptr;
+    void *esp_arg[66] = {0,};
+
     /* Allocate and activate page directory. */
     t->pagedir = pagedir_create ();
     if (t->pagedir == NULL) 
         goto done;
     process_activate ();
 
+    /////// parse_file_name
+    memcpy(temp_file_name, file_name, 128);
+
+    for (token = strtok_r(temp_file_name, " ", &save_ptr); token != NULL;
+        token = strtok_r(NULL, " ", &save_ptr)) {
+        stack_arg[argc] = token;
+        argc++;
+    }
+
     /*
-       parse_filename()
-
-       AAAAAAAAAAADDDDDDDDDDD
+    for(i=0;i<argc;i++)
+        printf("%s\n",stack_arg[i]);
     */
-
-
+   
     /* Open executable file. */
-    file = filesys_open (file_name);
+    file = filesys_open (stack_arg[0]);
     if (file == NULL) 
     {
-        printf ("load: %s: open failed\n", file_name);
+        printf ("load: %s: open failed\n", stack_arg[0]);
         goto done; 
     }
 
@@ -312,10 +330,53 @@ load (const char *file_name, void (**eip) (void), void **esp)
     if (!setup_stack (esp))
         goto done;
 
-    /*
-       construct_ESP(esp)
-       AAAAAAAAAAAADDDDDDDDDDDDDDDDDDD
-    */
+    ////// construct_ESP(esp)
+    // I have to move the parameters by esp.
+    // esp is a pointer, so I can move a value to memory which esp points.
+    
+    esp_arg[argc] = 0;
+    
+    for(i = argc-1; i >= 0; i--){
+        arg_size = strlen(stack_arg[i]);
+        *esp -= (arg_size + 1);
+        memcpy(*esp, *(stack_arg+i), arg_size);
+        //hex_dump(*esp-40, *esp, 50, true);
+
+        esp_arg[i] = *esp;
+        
+        memcpy(*esp + arg_size, null_arg, 1);
+        //hex_dump(*esp, *esp, 30, true);
+    }
+
+    //// word align (1 byte)
+    *esp -= 1;
+    memcpy(*esp, null_arg, 1);
+
+    ///// address of arguments
+    arg_size = sizeof(esp_arg[argc]);   // It must be 4
+
+    ///// address of argv[argc] (0 for pointer size)
+    *esp -= arg_size;
+    memcpy(*esp, null_arg, arg_size);
+
+    for(i = argc-1; i >= 0; i--){
+        //hex_dump(*esp, *esp, 30, true);
+
+        *esp -= arg_size; 
+        memcpy(*esp, *(esp_arg + i), arg_size);
+    }
+
+    //// address of argv 
+    *esp -= arg_size;
+    memcpy(*esp, *esp + arg_size, arg_size);
+
+    //// argc
+    *esp -= sizeof(argc);
+    memcpy(*esp, (void*)&argc, sizeof(argc));
+
+    //// return address
+    *esp -= arg_size;
+    memcpy(*esp, null_arg, arg_size);
 
     /* Start address. */
     *eip = (void (*) (void)) ehdr.e_entry;
