@@ -220,6 +220,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     int i;
 
     int argc = 0, arg_size;
+    int *addr_argv;
     char temp_file_name[130] = {0,};
     char *stack_arg[65] = {0,};
     char null_arg[] = "\0\0\0\0";
@@ -345,7 +346,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
         esp_arg[i] = *esp;
         
         memcpy(*esp + arg_size, null_arg, 1);
-        //hex_dump(*esp, *esp, 30, true);
+        //hex_dump(*esp, *esp, 40, true);
     }
 
     //// word align (1 byte)
@@ -363,12 +364,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
         //hex_dump(*esp, *esp, 30, true);
 
         *esp -= arg_size; 
-        memcpy(*esp, *(esp_arg + i), arg_size);
+        memcpy(*esp, esp_arg + i, arg_size);
     }
 
     //// address of argv 
     *esp -= arg_size;
-    memcpy(*esp, *esp + arg_size, arg_size);
+    i = (int)*esp;
+    i += arg_size;
+    memcpy(*esp, (void*)&i, arg_size);      // the reason for using i : memcpy just copy parameter's value, not parameter itself.
 
     //// argc
     *esp -= sizeof(argc);
@@ -377,6 +380,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
     //// return address
     *esp -= arg_size;
     memcpy(*esp, null_arg, arg_size);
+
+    //hex_dump(*esp, *esp, 40, true);
 
     /* Start address. */
     *eip = (void (*) (void)) ehdr.e_entry;
