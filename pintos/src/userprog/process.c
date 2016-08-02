@@ -382,6 +382,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     memcpy(*esp, null_arg, arg_size);
 
     //hex_dump(*esp, *esp, 40, true);
+    //printf("[load]testest : %x\n", *esp);
 
     /* Start address. */
     *eip = (void (*) (void)) ehdr.e_entry;

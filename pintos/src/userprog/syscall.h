@@ -4,7 +4,7 @@
 void syscall_init (void);
 
 //////// syscall list
-void exit (int);
-int write (int, const void*, unsigned);
+void sys_exit (int);
+int sys_write (int, const void*, unsigned);
 
 #endif /* userprog/syscall.h */
