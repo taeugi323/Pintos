@@ -90,8 +90,14 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
+    ////// temporarily implementation for exit status
+    int exit_status;
+
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+
+    ////// list element for all dead thread
+    struct list_elem deadelem;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -100,6 +106,17 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+};
+
+/* This structure is similar with "struct thread", but it is for dead threads.
+ * It helps to manage dead threads in "userprog/process.c"
+ */
+struct dead_thread
+{
+    tid_t tid;
+    char name[32];
+    int exit_status;
+    struct list_elem deadelem;
 };
 
 /* If false (default), use round-robin scheduler.
@@ -125,6 +142,8 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+
+bool is_thread (struct thread *) UNUSED;
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

@@ -8,6 +8,8 @@
 
 static void syscall_handler (struct intr_frame *);
 
+struct list dead_list;
+
 void
 syscall_init (void) 
 {
@@ -57,9 +59,25 @@ syscall_handler (struct intr_frame *f UNUSED)
 void sys_exit (int status)
 {
     struct thread *t_current = thread_current();
+    struct dead_thread *temp;
+    struct list_elem *e;
+    char command_name[32]={0,};
+    char *token, *save_ptr; 
 
-    printf("%s: exit(%d)\n",t_current->name, status);
+    memcpy(command_name, t_current->name, 32);
+    token = strtok_r(command_name, " ", &save_ptr );
+    printf("%s: exit(%d)\n",token, status);
+    t_current->exit_status = status;
+
     thread_exit();
+    /*
+    for (e = list_begin (&dead_list); e != list_end (&dead_list);
+            e = list_next (e)) {
+
+        temp = list_entry(e, struct dead_thread, deadelem);
+        printf("[syscall_sysexit] name : %s, tid : %d\n", temp->name, temp->tid);
+    }*/
+
     return ;
 
 }

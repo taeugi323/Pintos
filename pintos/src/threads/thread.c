@@ -7,6 +7,7 @@
 #include "threads/flags.h"
 #include "threads/interrupt.h"
 #include "threads/intr-stubs.h"
+#include "threads/malloc.h"
 #include "threads/palloc.h"
 #include "threads/switch.h"
 #include "threads/synch.h"
@@ -22,11 +23,14 @@
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
-static struct list ready_list;
+extern struct list ready_list;      // declared as 'extern' to use ready_list in userprog/process.c
 
 /* List of all processes.  Processes are added to this list
    when they are first scheduled and removed when they exit. */
-static struct list all_list;
+extern struct list all_list;    // declared as 'extern' to use all_list in userprog/process.c
+
+///////// List of dead threads
+extern struct list dead_list;
 
 /* Idle thread. */
 static struct thread *idle_thread;
@@ -65,7 +69,7 @@ static void idle (void *aux UNUSED);
 static struct thread *running_thread (void);
 static struct thread *next_thread_to_run (void);
 static void init_thread (struct thread *, const char *name, int priority);
-static bool is_thread (struct thread *) UNUSED;
+//static bool is_thread (struct thread *) UNUSED;
 static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
@@ -87,17 +91,18 @@ static tid_t allocate_tid (void);
 void
 thread_init (void) 
 {
-  ASSERT (intr_get_level () == INTR_OFF);
+    ASSERT (intr_get_level () == INTR_OFF);
 
-  lock_init (&tid_lock);
-  list_init (&ready_list);
-  list_init (&all_list);
+    lock_init (&tid_lock);
+    list_init (&ready_list);
+    list_init (&all_list);
+    list_init (&dead_list);
 
-  /* Set up a thread structure for the running thread. */
-  initial_thread = running_thread ();
-  init_thread (initial_thread, "main", PRI_DEFAULT);
-  initial_thread->status = THREAD_RUNNING;
-  initial_thread->tid = allocate_tid ();
+    /* Set up a thread structure for the running thread. */
+    initial_thread = running_thread ();
+    init_thread (initial_thread, "main", PRI_DEFAULT);
+    initial_thread->status = THREAD_RUNNING;
+    initial_thread->tid = allocate_tid ();
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -173,6 +178,11 @@ thread_create (const char *name, int priority,
     tid_t tid;
     enum intr_level old_level;
 
+    /*    
+    struct list_elem *e;
+    struct thread *temp = NULL;
+    */
+
     ASSERT (function != NULL);
 
     /* Allocate thread. */
@@ -205,6 +215,19 @@ thread_create (const char *name, int priority,
     sf->ebp = 0;
 
     intr_set_level (old_level);
+
+    /*
+    ///// add thread to all_list
+    if(strcmp(name, "idle") != 0)
+        list_push_back (&all_list, &t->allelem);
+
+    for (e = list_begin (&all_list); e != list_end (&all_list);
+            e = list_next (e)) {
+
+        temp = list_entry(e, struct thread, allelem);
+        printf("[thread_create] name : %s \n", temp->name);
+    }
+    */
 
     /* Add to run queue. */
     thread_unblock (t);
@@ -288,20 +311,49 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
-  ASSERT (!intr_context ());
+    struct dead_thread *temp, *temp1;
+    struct list_elem *e;
+    int i;
+    ASSERT (!intr_context ());
+
+
+    /////// add thread to dead_list
+    /*
+    for(i=0;i<RESIDUE_LEN;i++)
+        if(!residue[i])
+            break;
+    */
+    temp = (struct dead_thread*)malloc(sizeof(struct dead_thread));
+    temp->tid = thread_current()->tid;
+    memcpy(temp->name, thread_current()->name, 32);
+    temp->exit_status = thread_current()->exit_status;
+
+    list_push_back (&dead_list, &( temp->deadelem ));
 
 #ifdef USERPROG
-  process_exit ();
+    process_exit ();
 #endif
 
-  /* Remove thread from all threads list, set our status to dying,
-     and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
-  intr_disable ();
-  list_remove (&thread_current()->allelem);
-  thread_current ()->status = THREAD_DYING;
-  schedule ();
-  NOT_REACHED ();
+    /* Remove thread from all threads list, set our status to dying,
+       and schedule another process.  That process will destroy us
+       when it calls thread_schedule_tail(). */
+
+    intr_disable ();
+
+    //// test
+    for (e = list_begin (&dead_list); e != list_end (&dead_list);
+            e = list_next (e)) {
+
+        temp1 = list_entry(e, struct dead_thread, deadelem);
+        //printf("[thread_exit] name : %s, tid : %d, address of dead : %x\n", temp1->name, temp1->tid, temp1);
+    }
+    //printf("[thread_exit] dead_list's address : %x\n",&dead_list);
+
+    list_remove (&thread_current()->allelem);
+    thread_current ()->status = THREAD_DYING;
+
+    schedule ();
+    NOT_REACHED ();
 }
 
 /* Yields the CPU.  The current thread is not put to sleep and
@@ -448,8 +500,14 @@ running_thread (void)
 }
 
 /* Returns true if T appears to point to a valid thread. */
+/*
 static bool
 is_thread (struct thread *t)
+{
+  return t != NULL && t->magic == THREAD_MAGIC;
+}
+*/
+bool is_thread (struct thread *t)
 {
   return t != NULL && t->magic == THREAD_MAGIC;
 }
