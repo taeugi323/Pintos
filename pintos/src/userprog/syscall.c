@@ -3,8 +3,10 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "userprog/process.h"
 #include "threads/vaddr.h"
 #include "userprog/pagedir.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -30,18 +32,18 @@ syscall_handler (struct intr_frame *f UNUSED)
     */
     void *current_sp = f->esp;
 
-    if(!is_user_vaddr(current_sp) || pagedir_get_page(t_current->pagedir, current_sp) == NULL){
+    if(!is_user_vaddr(current_sp) || pagedir_get_page(t_current->pagedir, current_sp) == NULL) {
         f->eax = -1; 
         sys_exit(-1);
     }
     else
     {
-        if(*(int*)current_sp == SYS_EXIT){
+        if(*(int*)current_sp == SYS_EXIT) {
             f->eax = *(int*)(current_sp+4);
             sys_exit(*(int*)(current_sp+4));
         }
 
-        else if(*(int*)current_sp == SYS_WRITE){
+        else if(*(int*)current_sp == SYS_WRITE) {
             //printf("fd : %d, buf pos: %x, size : %d\n", *(int*)(current_sp+4), current_sp+8, *(unsigned*)(current_sp+12) );
             //hex_dump(*(int*)(current_sp+8), *(int*)(current_sp+8), 30, true);
             //hex_dump(0xbfffff68, 0xbfffff68, 30, true);
@@ -51,6 +53,19 @@ syscall_handler (struct intr_frame *f UNUSED)
             sys_write( *(int*)(current_sp+4), *(int*)(current_sp+8), *(unsigned*)(current_sp+12) );
 
         }
+
+        else if(*(int*)current_sp == SYS_HALT) {
+            sys_halt();
+        }
+
+        else if(*(int*)current_sp == SYS_EXEC) {
+            f->eax = sys_exec(*(int*)(current_sp+4));
+        }
+
+        else if(*(int*)current_sp == SYS_WAIT) {
+            f->eax = sys_wait(*(int*)(current_sp+4));
+        }
+
 
     }
 }
@@ -91,12 +106,28 @@ int sys_write (int fd, const void *buffer, unsigned size)
     return size;
 }
 
-/*
-pid_t sys_exec (const char *file)
+void sys_halt(void)
 {
+    shutdown_power_off();
+}
+
+// In here, process_execute() will be used.
+// But, it returns tid_t variable.
+// tid_t is originally for kernel threads, but we will use tid_t as pid_t.
+// It's all right because PINTOS uses single thread system.
+
+pid_t sys_exec (const char *cmd_line)
+{
+    pid_t child_pid;
+    
+    child_pid = process_execute(cmd_line);
+    
+    return child_pid;
 }
 
 int sys_wait (pid_t pid)
 {
+    //printf("[sys_wait] current_thread's tid : %d\n",thread_current()->tid);
+    return process_wait(pid);
 }
-*/
+

@@ -42,10 +42,16 @@ process_execute (const char *file_name)
         return TID_ERROR;
     strlcpy (fn_copy, file_name, PGSIZE);
 
+    //printf("[process_execute] %s\n", file_name);
+
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
     if (tid == TID_ERROR)
         palloc_free_page (fn_copy); 
+
+    //// Here, we need to synchronize current thread and thread in create.
+    ///// Because parent process must return -1 when ELF didn't be loaded successfully.
+    
     return tid;
 }
 
@@ -67,7 +73,7 @@ start_process (void *file_name_)
 
     /* If load failed, quit. */
     palloc_free_page (file_name);
-    if (!success) 
+    if (!success)
         thread_exit ();
 
     /* Start the user process by simulating a return from an
@@ -94,6 +100,8 @@ process_wait (tid_t child_tid UNUSED)
 {
     struct list_elem *e;
     struct dead_thread *child = NULL;
+    struct thread *search = NULL;
+    tid_t exit_status;
 
     /*
     for (e = list_begin (&all_list); e != list_end (&all_list);
@@ -114,17 +122,27 @@ process_wait (tid_t child_tid UNUSED)
         for (e = list_begin (&dead_list); e != list_end (&dead_list);
                 e = list_next (e)) {
 
-            child = list_entry(e, struct dead_thread, deadelem);     // threads are all deallocated when they dye.
-                                                                // I should make dead_thread typedef structure and manage dead_threads.
-            if(child != NULL){
+            child = list_entry(e, struct dead_thread, deadelem);     // threads are all deallocated when they die. So dead_thread is needed.
+            if(child != NULL) {
                 //printf("[process_wait] child : %x\n", child);
                 
-                if(child->tid == child_tid){
-                    return child->exit_status;
+                if(child->tid == child_tid) {
+                    if( child->parent_tid == thread_tid() ) {   // Check whether child's parent is current thread or not
+                        if( !(child->waited) ) {
+                            child->waited = true;
+                            return child->exit_status;
+                        }
+                        else {
+                            return -1;
+                        }
+                    }
+                    else
+                        return -1;
                 }
             }
 
         }
+
     }
 }
 

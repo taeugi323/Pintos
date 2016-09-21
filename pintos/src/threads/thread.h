@@ -90,14 +90,14 @@ struct thread
     int priority;                       /* Priority. */
     struct list_elem allelem;           /* List element for all threads list. */
 
-    ////// temporarily implementation for exit status
+    ////// For handing over exit status to dead_thread
     int exit_status;
+
+    ////// For checking thread's parent thread
+    tid_t parent_tid;
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
-
-    ////// list element for all dead thread
-    struct list_elem deadelem;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -117,6 +117,8 @@ struct dead_thread
     char name[32];
     int exit_status;
     struct list_elem deadelem;
+    tid_t parent_tid;   // for checking dead_thread's parent process
+    bool waited;
 };
 
 /* If false (default), use round-robin scheduler.

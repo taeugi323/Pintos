@@ -193,6 +193,9 @@ thread_create (const char *name, int priority,
     /* Initialize thread. */
     init_thread (t, name, priority);
     tid = t->tid = allocate_tid ();
+    
+    ////// To remember which is his parent
+    t->parent_tid = thread_current()->tid;
 
     /* Prepare thread for first run by initializing its stack.
        Do this atomically so intermediate values for the 'stack' 
@@ -229,9 +232,12 @@ thread_create (const char *name, int priority,
     }
     */
 
+    //printf("4444 %s 4444\n", thread_current()->name);
+
     /* Add to run queue. */
     thread_unblock (t);
 
+    //printf("5555 %s 5555\n", thread_current()->name);
     return tid;
 }
 
@@ -311,6 +317,7 @@ thread_tid (void)
 void
 thread_exit (void) 
 {
+    struct thread *t_current = thread_current();
     struct dead_thread *temp, *temp1;
     struct list_elem *e;
     int i;
@@ -324,9 +331,11 @@ thread_exit (void)
             break;
     */
     temp = (struct dead_thread*)malloc(sizeof(struct dead_thread));
-    temp->tid = thread_current()->tid;
-    memcpy(temp->name, thread_current()->name, 32);
-    temp->exit_status = thread_current()->exit_status;
+    temp->tid = t_current->tid;
+    memcpy(temp->name, t_current->name, 32);
+    temp->exit_status = t_current->exit_status;
+    temp->parent_tid = t_current->parent_tid;
+    temp->waited = false;
 
     list_push_back (&dead_list, &( temp->deadelem ));
 
@@ -500,13 +509,6 @@ running_thread (void)
 }
 
 /* Returns true if T appears to point to a valid thread. */
-/*
-static bool
-is_thread (struct thread *t)
-{
-  return t != NULL && t->magic == THREAD_MAGIC;
-}
-*/
 bool is_thread (struct thread *t)
 {
   return t != NULL && t->magic == THREAD_MAGIC;
